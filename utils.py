@@ -17,6 +17,7 @@ from constant import *
 import tempfile
 import random
 import string
+from newsapi import NewsApiClient
 
 
 
@@ -31,6 +32,29 @@ import string
 #     | CHAT_LLM
 #     |StrOutputParser())
 #     return summarize_chain
+
+
+class NewsApi():
+    def __init__(self):
+        self.newsapi = NewsApiClient(api_key=os.getenv('NEWSAPI_API_KEY'))
+        
+
+    # Init
+    def get_everything_in_news(self,query,from_date,to_date,language,sortBy,pageSize,page):
+        all_articles = self.newsapi.get_everything(q=query,language=language,from_param=from_date,to=to_date,sort_by=sortBy,page_size=pageSize,page=page)
+        if all_articles["status"] == "ok":
+            return all_articles
+        else:
+            print("all_articles response = ",all_articles)
+            return all_articles
+    
+    def get_top_headlines_news(self,query,country,category,pageSize,page):
+        all_articles = self.newsapi.get_top_headlines(q=query,country=country,category=category,page_size=pageSize,page=page)
+        if all_articles["status"] == "ok":
+            return all_articles
+        else:
+            print("all_articles response = ",all_articles)
+            return all_articles
 
 class GNews():
     def __init__(self,targate,days:int,max_news:int,summarize) -> None:
