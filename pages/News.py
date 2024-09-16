@@ -18,7 +18,7 @@ with st.sidebar:
 
 if search_term:
     if st.button("Click to Search News "):
-        tab1, tab2, tab3 = st.tabs(["GNews", "Bing News Search API"])
+        tab1, tab2 = st.tabs(["GNews", "Bing News Search API"])
         json_file_search_term_name = search_term.replace(' ', '_')
         with tab1:
             get_news_and_put_download_button("GNews",search_term,freshness,max_news,sort_by)
