@@ -55,6 +55,67 @@ class NewsApi():
         else:
             print("all_articles response = ",all_articles)
             return all_articles
+        
+class NewsAiApi():
+    def __init__(self,language):
+        self.getArticles_end_point = "https://eventregistry.org/api/v1/article/getArticles"
+        self.getEvent_end_point = "https://eventregistry.org/api/v1/event/getEvents"
+        self.payload = {
+            "apiKey": os.getenv('NEWS_AI_API_KEY'),
+            "includeArticleConcepts": True,
+        }
+        
+    def getArticles(self,pageSize,page,sort_by,resultType,articleBodyLen,from_date,to_date,dataType,categoryUri,language,keywords=None):
+        
+
+        self.payload.update({"articlesPage":page,
+                             "articlesCount":pageSize,
+                             "articlesSortBy":sort_by,
+                             "resultType":resultType,
+                             "articlesArticleBodyLen":articleBodyLen,
+                             "dataType":dataType,
+                             "lang":language
+                             })
+        if categoryUri:
+            self.payload.update({"dateStart":from_date.strftime("%Y-%m-%d"),"dateEnd":to_date.strftime("%Y-%m-%d"),"categoryUri":categoryUri})
+        else:
+            self.payload.update({"dateStart":from_date.strftime("%Y-%m-%d"),"dateEnd":to_date.strftime("%Y-%m-%d")})
+        if not(keywords == None or keywords =="" or keywords ==[] ):
+            self.payload.update({"keyword":keywords})
+        else:
+            pass
+        print(self.payload)
+        response =  requests.get(self.getArticles_end_point,json=self.payload)
+        if response.status_code == 200:
+            return response.json()
+        else :
+            try:
+                return response.json()
+            except:
+                return response.status_code
+    
+    def getEvents(self,pageSize,page,sort_by,resultType,articleBodyLen,from_date:datetime.date,to_date:datetime.date,categoryUri,language):
+        self.payload.update({"eventsPage":page,
+                             "eventsCount":pageSize,
+                             "eventsSortBy":sort_by,
+                             "resultType":resultType,
+                             "articlesArticleBodyLen":articleBodyLen,
+                             "lang":language
+
+                             })
+        if categoryUri:
+            self.payload.update({"dateStart":from_date.strftime("%Y-%m-%d"),"dateEnd":to_date.strftime("%Y-%m-%d"),"categoryUri":categoryUri})
+        else:
+            self.payload.update({"dateStart":from_date.strftime("%Y-%m-%d"),"dateEnd":to_date.strftime("%Y-%m-%d")})
+        print(self.payload)
+        response =  requests.get(self.getEvent_end_point,json=self.payload)
+        if response.status_code == 200:
+            return response.json()
+        else :
+            try:
+                return response.json()
+            except:
+                return response.status_code
 
 class GNews():
     def __init__(self,targate,days:int,max_news:int,summarize) -> None:
