@@ -15,10 +15,10 @@ from operator import itemgetter
 import uuid
 from constant import *
 import tempfile
-import random
+import random,time
 import string
 from newsapi import NewsApiClient
-
+from functools import reduce
 
 
 # def initialize_chatgpt_chain():
@@ -664,3 +664,173 @@ def get_news_and_put_download_button(news_choice,search_terms:str,freshness,max_
                         )
         else:
             st.subheader("Unable to genrate Output news")
+    
+
+class AylienNews():
+    def __init__(self) -> None:
+        username = os.getenv('AYLIEN_EMAIL')
+        password = os.getenv('AYLIEN_PASSWORD')
+        AppID = os.getenv('AYLIEN_APP_ID')
+        self.headers = self._get_auth_header(username,password,AppID)
+        self.param={'per_page': 100,
+                    "published_at":"[NOW-7DAYS TO NOW]",
+                    }
+
+
+
+    def _get_auth_header(self,username, password, appid):
+        # Generate the authorization header for making requests to the Aylien API.
+
+        token = requests.post('https://api.aylien.com/v1/oauth/token', auth=(username, password), data={'grant_type': 'password'})
+
+        token = token.json()['access_token']
+
+        headers = {f'Authorization': 'Bearer {}'.format(token), 'AppId': appid}
+
+        return headers
+    
+    def _get_stories(self,params, headers):
+        #  Fetch stories from the Aylien News API using the provided parameters and headers.
+
+        fetched_stories = []
+        stories = None
+
+        while stories is None or len(stories) > 0:
+            try:
+                response = requests.get('https://api.aylien.com/v6/news/stories', params=params, headers=headers)
+
+                # If the call is successfull it will append it
+                if response.status_code == 200:
+                    response_json = response.json()
+                    print("response_json =====",response_json)
+                    stories = response_json['stories']
+
+                    if 'next_page_cursor' in response_json.keys():
+                        params['cursor'] = response_json['next_page_cursor']
+                    else:
+                        st.write('No next_page_cursor')
+
+                    fetched_stories += stories
+
+                    if len(stories) > 0 and not stories == None:
+                        st.write(
+                            'Fetched %d stories. Total story count so far: %d'
+                            % (len(stories), len(fetched_stories))
+                        )
+
+                # If the application reached the limit per minute it will sleep and retry until the limit is reset
+                elif response.status_code == 429:
+                    time.sleep(10)
+                    continue
+
+                # If the API call face network or server errors it sleep for few minutes and try again a few times until completely stop the script.
+                elif 500 <= response.status_code <= 599:
+                    time.sleep(260)
+                    continue
+
+                # If the API call return any other status code it return the error for futher investigation and stop the script.
+                else:
+                    st.write(response.text)
+                    break
+
+            except Exception as e:
+                # In case the code fall in any exception error.
+                st.write(e)
+                break
+
+        return fetched_stories
+    def _get_one_page_stories(self,params, headers):
+        response = requests.get('https://api.aylien.com/v6/news/stories', params=params, headers=headers)
+        if response.status_code == 200:
+            response_json = response.json()
+            return response_json
+        else:
+            return response
+
+
+    def get_stories_from_params(self):
+
+        stories = self._get_stories(self.param, self.headers)
+
+        return stories
+    
+    def join_list_with_OR(self,list_of_data):
+        value = reduce(lambda x,y: x + f"{y}" if y == list_of_data[-1] else x + f"{y} OR ",list_of_data,"")
+        return value
+    
+    def set_lang(self):
+        if value:=st.session_state['languages']:
+            lang = self.join_list_with_OR(value)
+            self.param.update({'language': f'({lang})'})
+        else:
+            if self.param.get("language"):
+                self.param.pop("language")
+    def set_keywords(self):
+        keywords_coice = st.session_state['keywords_coice']
+        match keywords_coice:
+            case "Title":
+                key = "title"
+            case "Body":
+                key = "body"
+            case "Title & Body":
+                key = "text"
+            case _:
+                raise Exception("Invalid Choice")
+        value=st.session_state['keywords']
+        print("value == ",value,value!="")
+        if value and value!="":
+            self.param.update({key: f'({value})'})
+        else:
+            if self.param.get(key):
+                self.param.pop(key)
+    def get_sub_entities_choice(self):
+        op_list = []
+        entities_choice = st.session_state['entities_choice']
+        match entities_choice:
+            case "Location":
+                op_list = ["City","Country","Location","Island_country","Sovereign_state","State_(polity)","U.S._state"]
+            case "Human":
+                op_list = []
+            case "Organization":
+                op_list = [
+                    "Advocacy_group","Bank","Bank_holding_company","Brick_and_mortar",
+                    "Business","Certificate_authority","Civil_service","Commercial_bank",
+                    "Community","Company","Conglomerate_(company)","Conservation_authority_(Ontario_Canada)",
+                    "Consumer_organization","Corporate_group","Corporation","Credit_bureau",
+                    "Deliberative_assembly","Educational_organization","Emergency_service","Environmental_organization",
+                    "Financial_institution","Government","Holding_company","Investment_banking",
+                    "Investment_company","Law_commission","Law_enforcement_organization","Local_federation",
+                    "Local_government","National_research_and_education_network","Newspaper","Nonprofit_organization",
+                    "Parlement","Political_organisation","Private-equity_firm","Privately_held_company",
+                    "Public_company","Ruling_party","Social_movement_organization","Standards_organization",
+                    "Stock_exchange","Subsidiary","Technology_company","Think_tank"
+                    ]
+            case _:
+                raise Exception("Invalid entities_choice")
+        return op_list
+
+    def set_entities(self,entity_value):
+        # entities_coice = st.session_state["entities_choice"]
+        # entities_sub_coice = st.session_state["sub_entities_choice"]
+        param_string = st.session_state['entities_param']
+
+        if len(param_string) and param_string!="":
+            param_string = param_string +f' OR {{{{surface_forms:("{entity_value}") AND overall_prominence:>=0.65 }}}}'
+        else:
+            param_string = param_string +f'{{{{surface_forms:("{entity_value}") AND overall_prominence:>=0.65 }}}}'
+        st.session_state['entities_param'] = param_string
+        self.param.update({"entities":f"({param_string})"})
+        print(">>>>",self.param)
+
+    def set_date_range(self):
+        date_range = st.session_state["date_range"]
+        if date_range:
+            self.param.update({'published_at': f'[{date_range} TO NOW]'})
+        
+
+    
+
+@st.cache_resource     
+def get_aylien_news_obj():
+        return AylienNews()
+

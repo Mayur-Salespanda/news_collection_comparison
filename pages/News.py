@@ -6,11 +6,12 @@ from pathlib import Path
 import tempfile 
 from datetime import datetime, timedelta
 from const import language_codes
+from functools import reduce
 # from crew.crew_kickoffs import KickoffAgent
 
 
 one_month_ago = datetime.now().replace(day=1) - timedelta(days=1) if datetime.now().month == 1 else (datetime.now().replace(day=1) - timedelta(days=1)).replace(month=datetime.now().month - 1)
-tab1, tab2,tab3,tab4 = st.tabs(["GNews", "Bing News Search API","News Apis(.org)","News AI(.ai)"])
+tab1, tab2,tab3,tab4,tab5 = st.tabs(["GNews", "Bing News Search API","News Apis(.org)","News AI(.ai)","Aylien News API"])
 with tab1:
     max_news =  st.slider("Select The Max NO Of News Article",min_value=1,max_value=100,step=1,value=30)
     freshness=st.selectbox("Select news Freshness ['Day', 'Week','Month'] ",['Day', 'Week','Month'])
@@ -78,4 +79,69 @@ with tab4:
             if st.button("Click to Search News ",key="search button 4.2"):
                 response = news_ai.getEvents(pageSize,page,sort_by,resultType,articleBodyLen,from_date,to_date,categoryUri,language)
                 st.write(response)
+
+with tab5:
+    if not st.session_state.get('entities_param'):
+        st.session_state['entities_param']=""
+    aylien_news =  get_aylien_news_obj()
+    # col1,col2 = st.columns([1,1])
+    # with col1:
+    #     Entities_choice = st.selectbox("Entities Choice",options=["Location","Human","Organization"],index=2, key='entities_choice')
+    # with col2:
+    #     Sub_entities_choice = st.selectbox("Sub Choice",options=aylien_news.get_sub_entities_choice(),index=0, key='sub_entities_choice')
+    col3,col4 = st.columns([3,1])
+    with col3:
+        Entities = st.text_input("Entities")
+    with col4:
+        if st.button("Enter Entities Query",key="Entities enter button",use_container_width=True):
+            aylien_news.set_entities(Entities)
+            Entities = ""
+
+    col1,col2 = st.columns([3,1])
+    with col1:
+        x = st.empty()
+        Entities_params            =   x.text_area("Entities Query Display",disabled=True,value=st.session_state['entities_param'])
+    with col2:
+        if st.button("Clear Entities Query",key="Entities clear button",use_container_width=True):
+            st.session_state['entities_param'] = None
+            if aylien_news.param.get("entities"):
+                aylien_news.param.pop("entities")
+            x.text_area("Entities Query Display",disabled=True,value=st.session_state['entities_param'])
+            
+
+
+
+    col1,col2 = st.columns([1,3])
+    with col1:
+        Keywords_coice  = st.selectbox("Type",options=["Title","Body","Title & Body"],index=2, key='keywords_coice')
+    with col2:
+        Keywords        =   st.text_input("Keywords",placeholder='Enter keywords eg. bank AND crisis NOT(stock or "quarterly report")',on_change=aylien_news.set_keywords, key='keywords')
+    # Categories          =   st.multiselect("Categories",options=[])
+    # Industries          =   st.multiselect("Industries",options=[])
+    # Source              =   st.multiselect("Source",options=[])
+    languages           =   st.multiselect('Select languages', AYLIEN_LANG_OPETION, on_change=aylien_news.set_lang, key='languages')
+    # Title_Sentiment     =   st.multiselect("Title_Sentiment",options=[])
+    Date_Range          =   st.selectbox("Date_Range",options=["NOW-7DAYS","NOW-1YEAR","NOW-1MONTH","NOW-1DAY","NOW-1HOUR","NOW-1MINUTE","NOW-1SECOND"],on_change=aylien_news.set_date_range,key="date_range")
+
+
+    if st.button("Click to Search News ",key="search button 5.1"):
+        # param={'published_at': f'[{Date_Range} TO NOW]',
+        # 'language': f'({Languages})',
+        # 'categories': '{{taxonomy:aylien AND id:(ay.fin.stockups OR ay.fin.stkclose) AND score:>=0.65}}',
+        # 'entities': '{{surface_forms:("Apple" OR "Tesla") AND overall_prominence:>=0.65}}',
+        # 'per_page': 100,}
+        st.write(aylien_news.param)
+        print("param=====>",aylien_news.param)
+        storys:list = aylien_news.get_stories_from_params()
+        story_str = json.dumps(storys)
+        with st.sidebar:
+                st.download_button(
+                            label=f"Download  page JSON",
+                            file_name="data.json",
+                            mime="application/json",
+                            data=story_str,
+                            key=f"download button "
+                        )
+
+
 

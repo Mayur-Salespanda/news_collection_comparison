@@ -107,4 +107,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 TEMP_BASE_JSON_DIR = os.path.join(BASE_DIR,"news_collection_comparison/temp/json")
 TEMP_BASE_REPORT_DIR = "temp/reports/"
 READ_REPORT_BASE_DIR = os.path.join(BASE_DIR,"news-poc")
+AYLIEN_LANG_OPETION = ["en", "de", "fr", "it", "es", "pt"]
+# AYLIEN_LANG_OPETION
+# AYLIEN_LANG_OPETION
+# AYLIEN_LANG_OPETION
+# AYLIEN_LANG_OPETION
+
+
 
